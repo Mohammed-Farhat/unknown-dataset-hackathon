@@ -1,0 +1,23 @@
+# generated datasets / outputs (reproducible with tools/make_practice_data.py)
+data/
+runs/
+outputs/
+out/
+*.tmp
+
+# python
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.venv/
+venv/
+*.egg-info/
+
+# OS / editors
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
+
+# the original announcement is not part of the solution
+*.docx
