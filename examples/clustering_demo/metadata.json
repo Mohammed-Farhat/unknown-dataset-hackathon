@@ -1,0 +1,18 @@
+{
+  "dataset_id": "clustering_demo",
+  "task": "clustering",
+  "target": null,
+  "id_column": "id",
+  "n_clusters": 4,
+  "feature_types": {
+    "noise_num_0": "numeric",
+    "noise_cat_0": "categorical",
+    "v0": "numeric",
+    "const_0": "numeric",
+    "noise_num_1": "numeric",
+    "v1": "numeric",
+    "v1_copy": "numeric",
+    "v2": "numeric"
+  },
+  "description": ""
+}

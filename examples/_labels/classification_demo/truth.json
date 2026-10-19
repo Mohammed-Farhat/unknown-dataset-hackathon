@@ -1,0 +1,28 @@
+{
+  "constant_columns": [
+    "const_0"
+  ],
+  "duplicate_columns": [
+    {
+      "column": "x4_copy",
+      "duplicate_of": "x4"
+    }
+  ],
+  "irrelevant_columns": [
+    "x6",
+    "x7",
+    "region",
+    "noise_num_0",
+    "noise_num_1",
+    "noise_cat_0"
+  ],
+  "rescaled_columns": [
+    "x6",
+    "x5"
+  ],
+  "missing_injected_columns": [
+    "region",
+    "x5",
+    "noise_num_1"
+  ]
+}

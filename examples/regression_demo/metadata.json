@@ -1,0 +1,18 @@
+{
+  "dataset_id": "regression_demo",
+  "task": "regression",
+  "target": "count",
+  "id_column": "id",
+  "feature_types": {
+    "noise_num_0": "numeric",
+    "humidity": "numeric",
+    "temp": "numeric",
+    "weather": "categorical",
+    "datetime": "categorical",
+    "noise_cat_0": "categorical",
+    "weather_copy": "categorical",
+    "const_0": "numeric",
+    "workingday": "numeric"
+  },
+  "description": ""
+}

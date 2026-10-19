@@ -1,0 +1,21 @@
+{
+  "constant_columns": [
+    "const_0"
+  ],
+  "duplicate_columns": [
+    {
+      "column": "weather_copy",
+      "duplicate_of": "weather"
+    }
+  ],
+  "irrelevant_columns": [
+    "noise_num_0",
+    "noise_cat_0"
+  ],
+  "rescaled_columns": [],
+  "missing_injected_columns": [
+    "noise_num_0",
+    "noise_cat_0",
+    "weather"
+  ]
+}

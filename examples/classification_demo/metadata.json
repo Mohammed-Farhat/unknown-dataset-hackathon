@@ -1,0 +1,24 @@
+{
+  "dataset_id": "classification_demo",
+  "task": "classification",
+  "target": "label",
+  "id_column": "id",
+  "feature_types": {
+    "noise_cat_0": "categorical",
+    "x6": "numeric",
+    "x4_copy": "numeric",
+    "x2": "numeric",
+    "noise_num_0": "numeric",
+    "x0": "numeric",
+    "region": "categorical",
+    "x1": "numeric",
+    "x4": "numeric",
+    "x7": "numeric",
+    "const_0": "numeric",
+    "x3": "numeric",
+    "noise_num_1": "numeric",
+    "segment": "categorical",
+    "x5": "numeric"
+  },
+  "description": ""
+}

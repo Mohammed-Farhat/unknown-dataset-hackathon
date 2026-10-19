@@ -1,0 +1,24 @@
+{
+  "constant_columns": [
+    "const_0"
+  ],
+  "duplicate_columns": [
+    {
+      "column": "v1_copy",
+      "duplicate_of": "v1"
+    }
+  ],
+  "irrelevant_columns": [
+    "noise_num_0",
+    "noise_num_1",
+    "noise_cat_0"
+  ],
+  "rescaled_columns": [
+    "v0"
+  ],
+  "missing_injected_columns": [
+    "v2",
+    "noise_cat_0",
+    "noise_num_1"
+  ]
+}
