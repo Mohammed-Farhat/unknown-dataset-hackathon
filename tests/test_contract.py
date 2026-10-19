@@ -332,3 +332,34 @@ def test_gzip_tables(tmp_path):
     (d / "metadata.json").write_text(json.dumps({"task": "classification", "target": "target"}))
     s = _cli(d, tmp_path / "out")
     assert s["n_predictions"] == 100
+
+
+def test_fast_scorer_matches_sklearn():
+    from automl.supervised import clf_score, fast_clf_score
+    rng = np.random.default_rng(1)
+    for trial in range(100):
+        K = int(rng.integers(2, 10))
+        y = rng.integers(0, K, 200)
+        pred = rng.integers(0, K, 200)
+        if trial % 3 == 0:
+            pred = np.where(pred == 0, 1, pred)  # a class that is never predicted
+        for m in ("macro_f1", "weighted_f1", "balanced_accuracy", "accuracy"):
+            assert abs(fast_clf_score(m, y, pred, K, 1) - clf_score(m, y, pred, None, 1)) < 1e-12
+
+
+def test_decision_tuning_is_fast_on_large_multiclass():
+    import time
+    from automl.supervised import tune_decision
+    rng = np.random.default_rng(0)
+    n, K = 30000, 20
+    y = rng.integers(0, K, n)
+    P = rng.dirichlet(np.ones(K), n)
+    t = time.time()
+    tune_decision("macro_f1", y, P, 1)
+    assert time.time() - t < 10
+
+
+def test_output_names_cannot_escape_the_output_folder(tmp_path):
+    from automl.io_contract import _file_name, safe_name
+    assert safe_name("../../etc") == "etc" and "/" not in safe_name("a/b\\c")
+    assert _file_name("../x/preds.csv", "p.csv") == "preds.csv" and _file_name("..", "p.csv") == "p.csv"

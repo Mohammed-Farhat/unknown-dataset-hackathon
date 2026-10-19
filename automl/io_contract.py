@@ -425,9 +425,11 @@ def _open_text(path: Path):
     if suf == ".zip":
         import io
         import zipfile
-        zf = zipfile.ZipFile(path)
-        name = [n for n in zf.namelist() if not n.endswith("/")][0]
-        return io.TextIOWrapper(zf.open(name), encoding="utf-8-sig", errors="replace")
+        with zipfile.ZipFile(path) as zf:  # small header sample only; archive closed at once
+            name = [n for n in zf.namelist() if not n.endswith("/")][0]
+            with zf.open(name) as fh:
+                head = fh.read(65536)
+        return io.StringIO(head.decode("utf-8-sig", errors="replace"))
     return open(path, "r", encoding="utf-8-sig", errors="replace")
 
 
@@ -987,24 +989,38 @@ def _atomic_write_text(path: Path, text: str) -> None:
     os.replace(tmp, path)
 
 
+def safe_name(name: str) -> str:
+    """Dataset name usable as a single folder name (no separators, no '..')."""
+    s = re.sub(r"[^A-Za-z0-9._-]+", "_", str(name)).strip("._") or "dataset"
+    return s[:100]
+
+
+def _file_name(value: str | None, default: str) -> str:
+    """File names taken from metadata are reduced to a bare name (no directories)."""
+    n = Path(str(value)).name if value else ""
+    return n if n and n not in (".", "..") else default
+
+
 def resolve_output_paths(output: str | Path | None, ds: Dataset) -> tuple[Path, Path]:
     """Return (predictions_csv, profile_json) paths."""
     meta = ds.meta
+    pred_name = _file_name(meta.predictions_file, "predictions.csv")
+    prof_name = _file_name(meta.profile_file, "profile.json")
     if output is None:
-        output = Path("outputs") / ds.name
+        output = Path("outputs") / safe_name(ds.name)
     out = Path(output)
     if out.suffix.lower() == ".csv":
         pred_path = out
-        prof_path = out.with_name(meta.profile_file or "profile.json")
+        prof_path = out.with_name(prof_name)
     elif out.suffix.lower() == ".json":
         prof_path = out
-        pred_path = out.with_name(meta.predictions_file or "predictions.csv")
+        pred_path = out.with_name(pred_name)
     else:
-        pred_path = out / Path(meta.predictions_file or "predictions.csv").name
-        prof_path = out / Path(meta.profile_file or "profile.json").name
+        pred_path = out / pred_name
+        prof_path = out / prof_name
     inputs = {Path(f).resolve() for f in ds.files.values() if f}
     if pred_path.resolve() in inputs or prof_path.resolve() in inputs:
-        safe = Path("outputs") / ds.name  # never overwrite an input file
+        safe = Path("outputs") / safe_name(ds.name)  # never overwrite an input file
         pred_path, prof_path = safe / "predictions.csv", safe / "profile.json"
     return pred_path, prof_path
 

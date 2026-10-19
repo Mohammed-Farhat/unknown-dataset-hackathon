@@ -107,6 +107,39 @@ def clf_score(metric: str, y: np.ndarray, pred: np.ndarray, proba: np.ndarray | 
     return f1_score(y, pred, average="macro", zero_division=0)
 
 
+def fast_clf_score(metric: str, y: np.ndarray, pred: np.ndarray, K: int,
+                   pos: int = 1) -> float | None:
+    """Exact sklearn values for label-encoded y / pred (0..K-1) from one confusion
+    matrix; ~100x faster, which matters inside the decision-rule search. Returns
+    None for metrics that need probabilities (roc_auc, log_loss)."""
+    if metric not in ("macro_f1", "weighted_f1", "balanced_accuracy", "accuracy", "binary_f1"):
+        return None
+    y = np.asarray(y, dtype=np.int64)
+    pred = np.asarray(pred, dtype=np.int64)
+    cm = np.bincount(y * K + pred, minlength=K * K).reshape(K, K)
+    tp = np.diag(cm).astype(float)
+    support = cm.sum(axis=1).astype(float)
+    predicted = cm.sum(axis=0).astype(float)
+    if metric == "accuracy":
+        return float(tp.sum() / max(len(y), 1))
+    if metric == "balanced_accuracy":
+        present = support > 0
+        return float(np.mean(tp[present] / support[present])) if present.any() else 0.0
+    denom = support + predicted
+    f1 = np.where(denom > 0, 2.0 * tp / np.maximum(denom, 1.0), 0.0)
+    if metric == "binary_f1":
+        return float(f1[pos])
+    if metric == "weighted_f1":
+        return float(np.sum(f1 * support) / max(support.sum(), 1.0))
+    labels = (support > 0) | (predicted > 0)
+    return float(f1[labels].mean()) if labels.any() else 0.0
+
+
+def _pred_score(metric, y, pred, K, pos):
+    s = fast_clf_score(metric, y, pred, K, pos)
+    return clf_score(metric, y, pred, None, pos) if s is None else s
+
+
 def reg_score(metric: str, y: np.ndarray, pred: np.ndarray) -> float:
     if metric == "mae":
         return -mean_absolute_error(y, pred)
@@ -359,25 +392,31 @@ def tune_decision(metric: str, y: np.ndarray, P: np.ndarray, pos: int):
         scores = []
         for t in ts:
             pred = np.where(p >= t, pos, 1 - pos)
-            scores.append(clf_score(metric, y, pred, None, pos))
+            scores.append(_pred_score(metric, y, pred, K, pos))
         scores = np.array(scores)
         best = scores.max()
         plateau = ts[scores >= best - 0.002]
         t = float(np.median(plateau))
-        after = clf_score(metric, y, np.where(p >= t, pos, 1 - pos), None, pos)
+        after = _pred_score(metric, y, np.where(p >= t, pos, 1 - pos), K, pos)
         if after > base + 0.002:
             return ("threshold", t, pos), base, after
         return ("argmax",), base, base
     w = np.ones(K)
     grid = np.exp(np.linspace(np.log(0.2), np.log(8), 41))
-    cur = base
+    # the per-class weight search runs on at most 10k rows (bounded time on big
+    # tables); the result is still accepted or rejected on all rows below
+    Ys, Ps = y, P
+    if len(y) > 10000:
+        sub = np.random.default_rng(SEED).choice(len(y), 10000, replace=False)
+        Ys, Ps = y[sub], P[sub]
+    cur = _pred_score(metric, Ys, Ps.argmax(1), K, pos)
     for _ in range(2):
         for k in range(1, K):
             best_g, best_s = w[k], cur
             for g in grid:
                 w2 = w.copy()
                 w2[k] = g
-                s = clf_score(metric, y, (P * w2).argmax(1), None, pos)
+                s = _pred_score(metric, Ys, (Ps * w2).argmax(1), K, pos)
                 if s > best_s + 1e-9:
                     best_g, best_s = g, s
             w[k] = best_g
@@ -385,7 +424,7 @@ def tune_decision(metric: str, y: np.ndarray, P: np.ndarray, pos: int):
     counts = np.bincount(y, minlength=K)
     if counts.min() < 15:
         w = np.exp(0.5 * np.log(w))
-    after = clf_score(metric, y, (P * w).argmax(1), None, pos)
+    after = _pred_score(metric, y, (P * w).argmax(1), K, pos)
     if after > base + 0.002:
         return ("weights", w), base, after
     return ("argmax",), base, base
@@ -444,7 +483,10 @@ def _caruana(oofs: list, y, task, metric, pos, steps=15):
             ll = log_loss(y, _norm_proba(pred), labels=np.arange(pred.shape[1]))
             if metric in ("log_loss",):
                 return -ll
-            return clf_score(metric, y, pred.argmax(1), pred, pos) - 1e-4 * ll
+            s = fast_clf_score(metric, y, pred.argmax(1), pred.shape[1], pos)
+            if s is None:
+                s = clf_score(metric, y, pred.argmax(1), pred, pos)
+            return s - 1e-4 * ll
         return reg_score(metric if metric in ("mae", "rmsle", "mape") else "rmse", y, pred)
 
     counts = np.zeros(m)
@@ -455,12 +497,18 @@ def _caruana(oofs: list, y, task, metric, pos, steps=15):
         for j in range(m):
             cand = oofs[j] if cur is None else (cur * counts.sum() + oofs[j]) / (counts.sum() + 1)
             s = score(cand)
+            if not np.isfinite(s):  # a broken candidate is never selected
+                continue
             if s > best_s:
                 best_s, best_j = s, j
+        if best_j is None:
+            break
         counts[best_j] += 1
         cur = oofs[best_j] if cur is None else (cur * (counts.sum() - 1) + oofs[best_j]) / counts.sum()
         if best_s > best_overall + 1e-12:
             best_overall, best_counts = best_s, counts.copy()
+    if best_counts is None:  # nothing scored: equal weights
+        return np.ones(m) / m
     return best_counts / best_counts.sum()
 
 
