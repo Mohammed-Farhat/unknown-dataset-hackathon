@@ -98,29 +98,12 @@ python main.py examples/clustering_demo     outputs/clustering_demo
 
 We received only the written announcement. It does not specify the input/output format, and the practice datasets, baseline, checker and scoring rules it mentions were not available to us. The program therefore implements the most common hackathon layout and accepts many variants of it, listed under [Assumptions](#assumptions). Every contract-specific detail lives in one file, [`automl/io_contract.py`](automl/io_contract.py).
 
-### Standard entry point
+### Command-line details
 
-```bash
-python main.py <dataset_dir> [<output_dir>]
-python main.py --data-dir <dataset_dir> --output-dir <output_dir>
-python main.py --train train.csv --test test.csv --metadata metadata.json --output-dir out/
-python main.py <folder_with_many_datasets> <output_root>      # batch: one process per dataset
-python -m automl <dataset_dir> <output_dir>                   # same thing, as a module
-```
+The commands are listed under [How to run](#how-to-run-for-the-assessment-agent). In addition:
 
-`run.py`, `solution.py` and `predict.py` are aliases of `main.py` with the same command line, for checkers that expect one of those names.
-
-- **Path flags:** `--input/--dataset/--data`, `--output/--out/-o`, and environment variables `DATA_DIR` and `OUTPUT_DIR` are all accepted. Unknown flags are ignored.
-- **Metadata overrides:** `--task`, `--target`, `--n-clusters`, `--id-column` and `--metric` override the metadata.
+- **Path flags:** `--input/--dataset/--data` and `--output/--out/-o` are accepted, as are the environment variables `DATA_DIR` and `OUTPUT_DIR`. Unknown flags are ignored.
 - **Output as a file:** if the output path ends in `.csv`, it is used as the predictions file and the profile is written next to it.
-
-Python API:
-
-```python
-from automl import run, solve
-result = run("path/to/dataset_dir", "path/to/output_dir")   # {"predictions": DataFrame, "profile": dict, ...}
-preds, profile = solve(train_df, test_df, {"task": "regression", "target": "SalePrice"})
-```
 
 ### Input: one folder per dataset
 
@@ -136,7 +119,7 @@ Other layouts are detected automatically:
 - **Other file formats:** TSV, `;`-separated with decimal commas, UTF-8/cp1252/latin-1 encodings, JSON lines, Parquet (when `pyarrow` is installed), and YAML metadata.
 - **Own outputs:** files written by the program (`predictions.csv`, `profile.json`) are never read back as inputs, even when the output folder is the input folder.
 - **Sample submission:** if a `sample_submission.csv` is present, its column names are copied.
-- **Metadata keys:** about 60 synonyms are recognised, for example `task_type`, `problem_type`, `label`, `target_column`, `num_clusters`, `k`, or `features: [{name, type}]`.
+- **Metadata keys:** about 75 synonyms are recognised, for example `task_type`, `problem_type`, `label`, `target_column`, `num_clusters`, `k`, or `features: [{name, type}]`.
 - **Missing metadata entries:** if the metadata lacks something, it is inferred. The target is the train column missing from test; the task comes from the target's type.
 
 ### Output (written to `<output_dir>`, default `outputs/<dataset_name>/`)
@@ -152,13 +135,7 @@ Prediction values by task:
 - **Regression:** numbers.
 - **Clustering:** integers `0..k-1`, with exactly `k` non-empty groups. If `test.csv` exists, train and test rows are clustered together and only the test rows are written.
 
-
-### Adapting to a different contract
-
-If the assessment environment uses a different format, only [`automl/io_contract.py`](automl/io_contract.py) needs to change:
-
-| What differs | Where to change it |
-|---|---|
+---|---|
 | Dataset file names | `find_files` |
 | Metadata key names | `KEYS` |
 | Output file names | `resolve_output_paths` |
@@ -421,8 +398,3 @@ tools/
 requirements.txt         pinned runtime dependencies
 requirements-dev.txt     + pytest
 ```
-
-## Development notes
-
-- As the announcement allows, AI assistants were used during development. Several independent assistant "advisors" proposed designs for the contract, the supervised pipeline and clustering, and the team kept the options that won on the benchmarks above.
-- The final program is self-contained. It makes no network calls and no AI or API calls at run time, and it writes nothing outside the output folder.
